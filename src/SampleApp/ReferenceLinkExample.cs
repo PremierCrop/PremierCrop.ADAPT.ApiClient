@@ -16,15 +16,13 @@ namespace SampleApp
 {
     public class ReferenceLinkExample
     {
-
-        private readonly HttpClient _httpClient;
-        private readonly string _apiBaseAddress;
+        private readonly ReferenceLinkClient _client;
         
         public ReferenceLinkExample()
         {
-            _apiBaseAddress = ExampleConfig.ApiBaseAddress;
             CustomDelegatingHandler customDelegatingHandler = new CustomDelegatingHandler(ExampleConfig.AppId, ExampleConfig.ApiKey);
-            _httpClient = HttpClientFactory.Create(customDelegatingHandler);
+            var httpClient = HttpClientFactory.Create(customDelegatingHandler);
+            _client = new ReferenceLinkClient(httpClient, ExampleConfig.ApiBaseAddress);
         }
         public async Task CallUsingReferenceLinks()
         {
@@ -35,99 +33,125 @@ namespace SampleApp
             };
 
             // Get Grower by Customer
-            var growers = await GetGrowersByCustomerAsync(ExampleConfig.CustomerUid);
+            var growersCustomer = await GetGrowersByCustomerAsync(ExampleConfig.CustomerUid);
 
             // Get Grower by Branch
-            var growers2 = await GetGrowersByBranchAsync(ExampleConfig.BranchUid);
+            var growersBranch = await GetGrowersByBranchAsync(ExampleConfig.BranchUid);
 
-            //foreach (var g in growers)
-            //    Console.WriteLine(g.Object.Name);
+            // Growers
+            Console.WriteLine("Growers");
+            var growers = await _client.Get<IReadOnlyCollection<ModelEnvelope<Grower>>>("/Growers");
+            Console.WriteLine($"Growers count: {growers.Count}");
 
             var grower = growers.First(g => idFactory.ContainsId(g.Object.Id, ExampleConfig.GrowerUid));
-            var growerSelf = await GetObjectByRel<Grower>(grower.Links, Relationships.Self);
-            
-            var farms = await GetListByRel<Farm>(growerSelf.Links);
-            var farm = farms.First(f => idFactory.ContainsId(f.Object.Id, ExampleConfig.FarmUid));
+            Console.WriteLine($"Grower Name: {grower.Object.Name}.");
+            var growerSelf = await _client.GetObjectByRel<Grower>(grower.Links, Relationships.Self);
+            Console.WriteLine($"Grower Self Name: {growerSelf.Object.Name}.");
+
+            var farmsByGrower = await _client.GetListByRel<Farm>(growerSelf.Links);
+            Console.WriteLine($"Farms count for Grower Self: {farmsByGrower.Count}");
+
+            var fieldsByGrower = await _client.GetListByRel<Field>(growerSelf.Links);
+            Console.WriteLine($"Fields count for Grower Self: {fieldsByGrower.Count}");
+
+            // Farms
+            Console.WriteLine();
+            Console.WriteLine("Farms");
+            var farm = farmsByGrower.First(f => idFactory.ContainsId(f.Object.Id, ExampleConfig.FarmUid));
+            Console.WriteLine($"Farm Description: {farm.Object.Description}.");
+            var farmSelf = await _client.GetObjectByRel<Farm>(farm.Links, Relationships.Self);
+            Console.WriteLine($"Self Farm Description: {farmSelf.Object.Description}.");
             // Get owning grower
-            var parentGrower = await GetObjectByRel<Grower>(farm.Links);
+            var farmGrower = await _client.GetObjectByRel<Grower>(farmSelf.Links);
+            Console.WriteLine($"Self Farm Grower Name: {farmGrower.Object.Name}.");
+            // Get fields
+            var fields = await _client.GetListByRel<Field>(farmSelf.Links);
+            Console.WriteLine($"Self Farm Fields count: {fields.Count}.");
 
-            var fields = await GetListByRel<Field>(farm.Links);
+            Console.WriteLine();
+            Console.WriteLine("Fields");
             var field = fields.First(f => idFactory.ContainsId(f.Object.Id, ExampleConfig.FieldUid));
-            // self
-            var fieldSelf = await GetObjectByRel<Field>(field.Links, Relationships.Self);
-            // OR by Grower.
-            var fields2 = await GetListByRel<Field>(grower.Links);
-            var fieldBoundary = await GetObjectByRel<FieldBoundary>(field.Links, queryParams: ExampleConfig.CropYear);
+            Console.WriteLine($"First Field Description: {field.Object.Description}.");
+            var fieldSelf = await _client.GetObjectByRel<Field>(field.Links, Relationships.Self);
+            Console.WriteLine($"Self Field Description: {fieldSelf.Object.Description}.");
+            // Get owning grower
+            var fieldGrower = await _client.GetObjectByRel<Grower>(fieldSelf.Links);
+            Console.WriteLine($"Self Field Grower Name: {fieldGrower.Object.Name}.");
+            // Get owning farm
+            var fieldFarm = await _client.GetObjectByRel<Farm>(fieldSelf.Links);
+            Console.WriteLine($"Self Field Farm Description: {fieldFarm.Object.Description}.");
+            // Get all Crop Zones
+            var cropZones = await _client.GetListByRel<CropZone>(fieldSelf.Links);
+            Console.WriteLine($"Self Field CropZones count: {cropZones.Count}.");
+            // Get CropZones for crop year by adding param.
+            var cropYearCropZones = await _client.GetListByRel<CropZone>(fieldSelf.Links, ExampleConfig.CropYear);
+            Console.WriteLine($"Self Field CropZones for  Crop Year count: {cropYearCropZones.Count}.");
+            // Get FieldBoundaries
+            var boundaries = await _client.GetListByRel<FieldBoundary>(fieldSelf.Links);
+            Console.WriteLine($"Self Field FieldBoundaries count: {boundaries.Count}.");
+            // Get FieldBoundaries for current crop year by adding param.
+            var cropYearBoundaries = await _client.GetListByRel<FieldBoundary>(fieldSelf.Links, DateTime.Now.Year.ToString());
+            Console.WriteLine($"Self Field FieldBoundaries for Current Crop Year count: {cropYearBoundaries.Count}.");
 
-            var cropZones = await GetListByRel<CropZone>(field.Links);
-            var cropZone = cropZones.First(cz => idFactory.ContainsId(cz.Object.Id, ExampleConfig.CropZoneId));
+            // CropZones
+            Console.WriteLine();
+            Console.WriteLine("CropZones");
+            var firstCropZone = cropYearCropZones.First();
+            Console.WriteLine($"First CropZone Description: {firstCropZone.Object.Description}.");
+            var cropZoneSelf = await _client.GetObjectByRel<CropZone>(firstCropZone.Links, Relationships.Self);
+            Console.WriteLine($"Self CropZone Description: {cropZoneSelf.Object.Description}.");
+            // Get owning field
+            var cropZoneField = await _client.GetObjectByRel<Field>(cropZoneSelf.Links);
+            Console.WriteLine($"Self CropZone Field Description: {cropZoneField.Object.Description}.");
 
-            // Get WorkItemOperations
-            var operations = await GetListByRel<WorkItemOperation>(field.Links, 2017, OperationTypeEnum.Fertilizing);
+            // FieldBoundaries
+            Console.WriteLine();
+            Console.WriteLine("FieldBoundaries");
+            var firstBoundary = cropYearBoundaries.First();
+            Console.WriteLine($"First FieldBoundary Description: {firstBoundary.Object.Description}.");
+            var boundarySelf = await _client.GetObjectByRel<FieldBoundary>(firstBoundary.Links, Relationships.Self);
+            Console.WriteLine($"Self FieldBoundary Description: {boundarySelf.Object.Description}.");
+            // Get owning field
+            var boundaryField = await _client.GetObjectByRel<Field>(boundarySelf.Links);
+            Console.WriteLine($"Self FieldBoundary Field Description: {boundaryField.Object.Description}.");
+
+            // WorkItemOperations
+            Console.WriteLine();
+            Console.WriteLine("WorkItemOperations");
+            var operations = await _client.GetListByRel<WorkItemOperation>(field.Links, ExampleConfig.CropYear, OperationTypeEnum.Fertilizing);
+            Console.WriteLine($"WorkItemOperations count: {operations.Count}.");
             var op = operations.First();
+            Console.WriteLine($"First WorkItemOperation Description: {op.Object.Description}.");
 
             // Get Prescription.
-            var prescription = await GetObjectByRel<Prescription>(op.Links);
+            var prescription = await _client.GetObjectByRel<Prescription>(op.Links);
+            Console.WriteLine($"Prescription Description: {prescription.Object.Description}.");
 
             // Get Products for it.
-            var products = await GetObjectsByMultipleRels<CropNutritionProduct>(prescription.Links);
+            var products = await _client.GetObjectsByMultipleRels<CropNutritionProduct>(prescription.Links);
+            Console.WriteLine($"Prescription Products Count: {products.Count}.");
             var product = products.First();
+            Console.WriteLine($"First Product Description: {product.Object.Description}.");
 
             // Total pounds
             var lookup = prescription.Object.RxProductLookups.First();
             var pounds = lookup.Representation.MaxValue.Value;  // Min/Max set to same values.
             var lbsUnit = lookup.UnitOfMeasure.Code; // lbs
+            Console.WriteLine($"First Product used: {pounds} {lbsUnit}.");
 
             // Get all CropNutrition products.
             var url = $"/CropNutritionProducts";
-            var allProducts = await Get<IReadOnlyCollection<ModelEnvelope<CropNutritionProduct>>>(url);
+            var allProducts = await _client.Get<IReadOnlyCollection<ModelEnvelope<CropNutritionProduct>>>(url);
+            Console.WriteLine($"All CropNutritionProducts count: {allProducts.Count}.");
         }
 
 
-
-        private async Task<ModelEnvelope<T>> GetObjectByRel<T>(IEnumerable<ReferenceLink> links, string rel = null, params object[] queryParams) where T : class
-        {
-            rel = rel ?? typeof(T).ObjectRel();
-            var link = links.Single(l => l.Rel == rel);
-            return await Get<ModelEnvelope<T>>(link.Link, queryParams);
-        }
-
-        private async Task<IReadOnlyCollection<ModelEnvelope<T>>> GetObjectsByMultipleRels<T>(IEnumerable<ReferenceLink> links, params object[] queryParams) where T : class
-        {
-            var rel = typeof(T).ObjectRel();
-            var relLinks = links.Where(l => l.Rel == rel);
-            var list = new List<ModelEnvelope<T>>();
-            foreach (var link in relLinks)
-            {
-                var x = await Get<ModelEnvelope<T>>(link.Link, queryParams);
-                list.Add(x);
-            }
-
-            return list.AsReadOnly();
-        }
-
-        private async Task<IReadOnlyCollection<ModelEnvelope<T>>> GetListByRel<T>(IEnumerable<ReferenceLink> links, params object[] queryParams) where T : class
-        {
-            var link = links.Single(l => l.Rel == typeof(T).ListRel());
-            
-            return await Get<IReadOnlyCollection<ModelEnvelope<T>>>(link.Link, queryParams);
-        }
-
-        private async Task<T> Get<T>(string url, params object[] queryParams) where T: class 
-        {
-            foreach (var p in queryParams)
-            {
-                url += $"/{p}";
-            }
-            var response = await _httpClient.GetStringAsync($"{_apiBaseAddress}{url}");
-            return JsonConvert.DeserializeObject<T>(response);
-        }
 
         public async Task<IReadOnlyCollection<ModelEnvelope<Grower>>> GetGrowersByCustomerAsync(string customerUid)
         {
             var source = "premiercrop.com";
             var url = $"/Customers/{source}/{customerUid}/Growers";
-            return await Get<IReadOnlyCollection<ModelEnvelope<Grower>>>(url);
+            return await _client.Get<IReadOnlyCollection<ModelEnvelope<Grower>>>(url);
         }
 
         public async Task<IReadOnlyCollection<ModelEnvelope<Grower>>> GetGrowersByBranchAsync(string branchUid)
@@ -136,7 +160,7 @@ namespace SampleApp
             var id = "00537B58-A9C5-43B3-9BEC-C49D6A2B70C8";
             DateTime lastUtc = new DateTime(2015, 1, 1);
             var url = $"/Branches/{source}/{id}/Growers/{lastUtc:yyyy-MM-dd}";
-            return await Get<IReadOnlyCollection<ModelEnvelope<Grower>>>(url);
+            return await _client.Get<IReadOnlyCollection<ModelEnvelope<Grower>>>(url);
         }
 
     }
