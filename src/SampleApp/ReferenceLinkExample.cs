@@ -137,7 +137,9 @@ namespace SampleApp
             var lbsUnit = lookup.UnitOfMeasure.Code; // lbs
             Console.WriteLine($"First Product used: {pounds} {lbsUnit}.");
 
-            // Get all CropNutrition products.
+            // Products
+            Console.WriteLine();
+            Console.WriteLine("Products");
             var url = $"/CropNutritionProducts";
             var allProducts = await _client.Get<IReadOnlyCollection<ModelEnvelope<CropNutritionProduct>>>(url);
             Console.WriteLine($"All CropNutritionProducts count: {allProducts.Count}.");
