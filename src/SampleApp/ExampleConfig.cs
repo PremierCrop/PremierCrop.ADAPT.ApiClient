@@ -15,7 +15,7 @@ namespace SampleApp
             FarmUid = configuration["FarmUid"];
             FieldUid = configuration["FieldUid"];
             CropZoneId = configuration["CropZoneId"];
-            CropYear = configuration["CropYear"];
+            CropYear = int.Parse(configuration["CropYear"]);
         }
 
         public static string ApiBaseAddress { get; private set; }
@@ -27,7 +27,7 @@ namespace SampleApp
         public static string GrowerUid { get; private set; }
         public static string FarmUid { get; private set; }
         public static string FieldUid { get; private set; }
-        public static string CropYear { get; private set; }
+        public static int CropYear { get; private set; }
         public static string CropZoneId { get; private set; }
     }
 }

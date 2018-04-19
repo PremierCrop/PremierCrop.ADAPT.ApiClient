@@ -33,15 +33,17 @@ namespace SampleApp
             };
 
             // Get Grower by Customer
-            var growersCustomer = await GetGrowersByCustomerAsync(ExampleConfig.CustomerUid);
+            var growersCustomer = await GetGrowersByCustomerAsync(idFactory.UniqueIdSource, ExampleConfig.CustomerUid);
+            Console.WriteLine($"Growers By Customer count: {growersCustomer.Count}");
 
             // Get Grower by Branch
-            var growersBranch = await GetGrowersByBranchAsync(ExampleConfig.BranchUid);
+            var growersBranch = await GetGrowersByBranchAsync(idFactory.UniqueIdSource, ExampleConfig.BranchUid);
+            Console.WriteLine($"Growers By Branch count: {growersBranch.Count}");
 
             // Growers
             Console.WriteLine("Growers");
             var growers = await _client.Get<IReadOnlyCollection<ModelEnvelope<Grower>>>("/Growers");
-            Console.WriteLine($"Growers count: {growers.Count}");
+            Console.WriteLine($"All growers count: {growers.Count}");
 
             var grower = growers.First(g => idFactory.ContainsId(g.Object.Id, ExampleConfig.GrowerUid));
             Console.WriteLine($"Grower Name: {grower.Object.Name}.");
@@ -68,6 +70,7 @@ namespace SampleApp
             var fields = await _client.GetListByRel<Field>(farmSelf.Links);
             Console.WriteLine($"Self Farm Fields count: {fields.Count}.");
 
+            // Fields
             Console.WriteLine();
             Console.WriteLine("Fields");
             var field = fields.First(f => idFactory.ContainsId(f.Object.Id, ExampleConfig.FieldUid));
@@ -86,12 +89,9 @@ namespace SampleApp
             // Get CropZones for crop year by adding param.
             var cropYearCropZones = await _client.GetListByRel<CropZone>(fieldSelf.Links, ExampleConfig.CropYear);
             Console.WriteLine($"Self Field CropZones for  Crop Year count: {cropYearCropZones.Count}.");
-            // Get FieldBoundaries
-            var boundaries = await _client.GetListByRel<FieldBoundary>(fieldSelf.Links);
-            Console.WriteLine($"Self Field FieldBoundaries count: {boundaries.Count}.");
-            // Get FieldBoundaries for current crop year by adding param.
-            var cropYearBoundaries = await _client.GetListByRel<FieldBoundary>(fieldSelf.Links, DateTime.Now.Year.ToString());
-            Console.WriteLine($"Self Field FieldBoundaries for Current Crop Year count: {cropYearBoundaries.Count}.");
+            // Get FieldBoundary for current crop year by adding param. (rel = null is 2nd param that isn't required, so specify queryParams).
+            var boundary = await _client.GetObjectByRel<FieldBoundary>(fieldSelf.Links, queryParams: ExampleConfig.CropYear);
+            Console.WriteLine($"Self Field FieldBoundary Crop Year: {boundary.Object.TimeScopes[0]?.TimeStamp1?.Year}.");
 
             // CropZones
             Console.WriteLine();
@@ -107,14 +107,12 @@ namespace SampleApp
             // FieldBoundaries
             Console.WriteLine();
             Console.WriteLine("FieldBoundaries");
-            var firstBoundary = cropYearBoundaries.First();
-            Console.WriteLine($"First FieldBoundary Description: {firstBoundary.Object.Description}.");
-            var boundarySelf = await _client.GetObjectByRel<FieldBoundary>(firstBoundary.Links, Relationships.Self);
-            Console.WriteLine($"Self FieldBoundary Description: {boundarySelf.Object.Description}.");
+            var boundarySelf = await _client.GetObjectByRel<FieldBoundary>(boundary.Links, Relationships.Self);
+            Console.WriteLine($"Self FieldBoundary Crop Year: {boundarySelf.Object.TimeScopes[0]?.TimeStamp1?.Year}.");
             // Get owning field
             var boundaryField = await _client.GetObjectByRel<Field>(boundarySelf.Links);
             Console.WriteLine($"Self FieldBoundary Field Description: {boundaryField.Object.Description}.");
-
+            
             // WorkItemOperations
             Console.WriteLine();
             Console.WriteLine("WorkItemOperations");
@@ -147,19 +145,16 @@ namespace SampleApp
 
 
 
-        public async Task<IReadOnlyCollection<ModelEnvelope<Grower>>> GetGrowersByCustomerAsync(string customerUid)
+        public async Task<IReadOnlyCollection<ModelEnvelope<Grower>>> GetGrowersByCustomerAsync(string source, string customerUid)
         {
-            var source = "premiercrop.com";
             var url = $"/Customers/{source}/{customerUid}/Growers";
             return await _client.Get<IReadOnlyCollection<ModelEnvelope<Grower>>>(url);
         }
 
-        public async Task<IReadOnlyCollection<ModelEnvelope<Grower>>> GetGrowersByBranchAsync(string branchUid)
+        public async Task<IReadOnlyCollection<ModelEnvelope<Grower>>> GetGrowersByBranchAsync(string source, string branchUid)
         {
-            var source = "premiercrop.com";
-            var id = "00537B58-A9C5-43B3-9BEC-C49D6A2B70C8";
             DateTime lastUtc = new DateTime(2015, 1, 1);
-            var url = $"/Branches/{source}/{id}/Growers/{lastUtc:yyyy-MM-dd}";
+            var url = $"/Branches/{source}/{branchUid}/Growers/{lastUtc:yyyy-MM-dd}";
             return await _client.Get<IReadOnlyCollection<ModelEnvelope<Grower>>>(url);
         }
 
