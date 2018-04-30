@@ -91,7 +91,9 @@ namespace SampleApp
             Console.WriteLine($"Self Field CropZones for  Crop Year count: {cropYearCropZones.Count}.");
             // Get FieldBoundary for current crop year by adding param. (rel = null is 2nd param that isn't required, so specify queryParams).
             var boundary = await _client.GetObjectByRel<FieldBoundary>(fieldSelf.Links, queryParams: ExampleConfig.CropYear);
-            Console.WriteLine($"Self Field FieldBoundary Crop Year: {boundary.Object.TimeScopes[0]?.TimeStamp1?.Year}.");
+            Console.WriteLine(boundary != null
+                ? $"Self Field FieldBoundary Crop Year: {boundary.Object.TimeScopes[0]?.TimeStamp1?.Year}."
+                : "No boundary found for CropZone.");
 
             // CropZones
             Console.WriteLine();
@@ -105,37 +107,51 @@ namespace SampleApp
             Console.WriteLine($"Self CropZone Field Description: {cropZoneField.Object.Description}.");
 
             // FieldBoundaries
-            Console.WriteLine();
-            Console.WriteLine("FieldBoundaries");
-            var boundarySelf = await _client.GetObjectByRel<FieldBoundary>(boundary.Links, Relationships.Self);
-            Console.WriteLine($"Self FieldBoundary Crop Year: {boundarySelf.Object.TimeScopes[0]?.TimeStamp1?.Year}.");
-            // Get owning field
-            var boundaryField = await _client.GetObjectByRel<Field>(boundarySelf.Links);
-            Console.WriteLine($"Self FieldBoundary Field Description: {boundaryField.Object.Description}.");
+            if (boundary == null)
+            {
+                Console.WriteLine("No boundaries to process.");
+            }
+            else
+            {
+                Console.WriteLine();
+                Console.WriteLine("FieldBoundaries");
+                var boundarySelf = await _client.GetObjectByRel<FieldBoundary>(boundary.Links, Relationships.Self);
+                Console.WriteLine(
+                    $"Self FieldBoundary Crop Year: {boundarySelf.Object.TimeScopes[0]?.TimeStamp1?.Year}.");
+                // Get owning field
+                var boundaryField = await _client.GetObjectByRel<Field>(boundarySelf.Links);
+                Console.WriteLine($"Self FieldBoundary Field Description: {boundaryField.Object.Description}.");
+            }
             
             // WorkItemOperations
             Console.WriteLine();
             Console.WriteLine("WorkItemOperations");
             var operations = await _client.GetListByRel<WorkItemOperation>(field.Links, ExampleConfig.CropYear, OperationTypeEnum.Fertilizing);
             Console.WriteLine($"WorkItemOperations count: {operations.Count}.");
-            var op = operations.First();
-            Console.WriteLine($"First WorkItemOperation Description: {op.Object.Description}.");
 
-            // Get Prescription.
-            var prescription = await _client.GetObjectByRel<Prescription>(op.Links);
-            Console.WriteLine($"Prescription Description: {prescription.Object.Description}.");
+            foreach (var op in operations)
+            {
+                Console.WriteLine();
+                Console.WriteLine($"WorkItemOperation Id: {op.Object.Id.UniqueIds.FirstOrDefault()?.Id}");
+                Console.WriteLine($"WorkItemOperation Description: {op.Object.Description}.");
 
-            // Get Products for it.
-            var products = await _client.GetObjectsByMultipleRels<CropNutritionProduct>(prescription.Links);
-            Console.WriteLine($"Prescription Products Count: {products.Count}.");
-            var product = products.First();
-            Console.WriteLine($"First Product Description: {product.Object.Description}.");
+                // Get Prescription.
+                var prescription = await _client.GetObjectByRel<Prescription>(op.Links);
+                Console.WriteLine($"Prescription Description: {prescription.Object.Description}.");
 
-            // Total pounds
-            var lookup = prescription.Object.RxProductLookups.First();
-            var pounds = lookup.Representation.MaxValue.Value;  // Min/Max set to same values.
-            var lbsUnit = lookup.UnitOfMeasure.Code; // lbs
-            Console.WriteLine($"First Product used: {pounds} {lbsUnit}.");
+                // Get Products for it.
+                var products = await _client.GetObjectsByMultipleRels<CropNutritionProduct>(prescription.Links);
+                Console.WriteLine($"Prescription Products Count: {products.Count}.");
+                var product = products.First();
+                Console.WriteLine($"First Product Description: {product.Object.Description}.");
+
+                // Total pounds
+                var lookup = prescription.Object.RxProductLookups.First();
+                var pounds = lookup.Representation.MaxValue.Value; // Min/Max set to same values.
+                var lbsUnit = lookup.UnitOfMeasure.Code; // lbs
+                Console.WriteLine($"First Product used: {pounds} {lbsUnit}.");
+            }
+
 
             // Products
             Console.WriteLine();
