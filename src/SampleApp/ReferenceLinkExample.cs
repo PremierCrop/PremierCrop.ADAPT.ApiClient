@@ -172,7 +172,7 @@ namespace SampleApp
         public async Task<IReadOnlyCollection<ModelEnvelope<Grower>>> GetGrowersByBranchAsync(string source, string branchUid)
         {
             DateTime lastUtc = new DateTime(2015, 1, 1);
-            var url = $"/Branches/{source}/{branchUid}/Growers/{lastUtc:yyyy-MM-dd}";
+            var url = $"/Branches/{source}/{branchUid}/Growers";
             return await _client.Get<IReadOnlyCollection<ModelEnvelope<Grower>>>(url);
         }
 
